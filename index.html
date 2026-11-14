@@ -3,13 +3,86 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>1기 공동 비전보드</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <title>할 수 있다!! 선박금융!!</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri/dist/galmuri.css" />
+    <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <main id="app" class="screen boot-screen" aria-live="polite">
+      <section id="bootView" class="view view-active" data-view="boot">
+        <div class="boot-console" aria-label="시스템 부팅 상태">
+          <p id="bootText" class="boot-text"></p>
+        </div>
+
+        <div id="titleBlock" class="title-block is-hidden">
+          <div class="ship-scene" aria-hidden="true">
+            <div class="pixel-ship">
+              <span class="ship-sail"></span>
+              <span class="ship-hull"></span>
+            </div>
+            <div class="pixel-wave wave-a"></div>
+            <div class="pixel-wave wave-b"></div>
+          </div>
+          <h1 class="game-title">
+            <span>할 수 있다!!</span>
+            <span>선박금융!!</span>
+          </h1>
+          <button id="startButton" class="press-start" type="button" disabled>
+            PRESS START
+          </button>
+        </div>
+      </section>
+
+      <section id="identityView" class="view" data-view="identity" aria-label="신원 확인">
+        <div class="dialog-box">
+          <p id="questionText" class="dialog-text"></p>
+          <form id="identityForm" class="identity-form" autocomplete="off">
+            <label class="sr-only" for="nameInput">이름</label>
+            <div class="input-frame">
+              <input
+                id="nameInput"
+                name="name"
+                type="text"
+                inputmode="text"
+                autocomplete="off"
+                spellcheck="false"
+                aria-label="이름 입력"
+              />
+              <span class="fake-cursor" aria-hidden="true"></span>
+            </div>
+            <button id="confirmButton" class="pixel-button" type="submit">확인</button>
+          </form>
+          <p id="statusText" class="status-text" role="status"></p>
+        </div>
+      </section>
+
+      <section id="successView" class="view" data-view="success">
+        <div class="success-panel">
+          <div class="sparkle-field" aria-hidden="true"></div>
+          <p id="successText" class="success-text"></p>
+        </div>
+      </section>
+
+      <section id="manualView" class="view app-view" data-view="manual">
+        <div id="appViewShell" class="app-shell" aria-live="polite"></div>
+      </section>
+
+      <section id="deniedView" class="view" data-view="denied" aria-label="권한 거부">
+        <div id="deniedText" class="denied-text">권한이 없습니다</div>
+      </section>
+
+      <section id="blackoutView" class="view blackout-view" data-view="blackout">
+        <button id="rebootButton" class="reboot-button" type="button">
+          [전원 버튼을 눌러 재부팅]
+        </button>
+      </section>
+
+      <button id="muteButton" class="mute-button" type="button" aria-pressed="false">
+        SOUND ON
+      </button>
+    </main>
+
+    <script src="./content.enc.js"></script>
+    <script src="./main.js"></script>
   </body>
 </html>
