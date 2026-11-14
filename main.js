@@ -31,11 +31,16 @@
     menu: "#/menu",
     stages: "#/stages",
     stage0: "#/stage/0",
+    stage1Intro: "#/stage/1/intro",
+    stage1Todo: "#/stage/1/todo",
+    stage1Diagram: "#/stage/1/diagram",
+    stage1Faq: "#/stage/1/faq",
   };
   const STORAGE_KEYS = {
     lastPath: "hsb-manual-last-path",
     visitedStage: (stageId) => `hsb-manual-visited-stage-${stageId}`,
     visitedNpc: (npcId) => `hsb-manual-visited-npc-${npcId}`,
+    checklist: (stageId, itemId) => `hsb-manual-check-${stageId}-${itemId}`,
   };
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -50,6 +55,12 @@
     manual: null,
     route: "",
     routeHistory: [],
+    stage1IntroPage: 0,
+    diagramStep: 0,
+    diagramMode: "tour",
+    showBondOption: false,
+    activeNodeId: "",
+    openFaqId: "",
   };
 
   function showView(name) {
@@ -256,10 +267,15 @@
   function getValidRoute(route) {
     if (!state.manual || !route) return null;
     const normalized = route.startsWith("#/") ? route : `#/${String(route).replace(/^#?\/?/, "")}`;
-    const stage = getStage0();
-    if (!stage) return normalized === ROUTES.menu || normalized === ROUTES.stages ? normalized : null;
+    const stage0 = getStage("stage-0");
+    const stage1 = getStage("stage-1");
+    if (!stage0 && !stage1) return normalized === ROUTES.menu || normalized === ROUTES.stages ? normalized : null;
 
-    if (normalized === ROUTES.menu || normalized === ROUTES.stages || normalized === ROUTES.stage0) {
+    if (normalized === ROUTES.menu || normalized === ROUTES.stages || (stage0 && normalized === ROUTES.stage0)) {
+      return normalized;
+    }
+
+    if (stage1 && getStage1TabFromRoute(normalized)) {
       return normalized;
     }
 
@@ -287,6 +303,7 @@
     if (validRoute === ROUTES.menu) renderMenu();
     else if (validRoute === ROUTES.stages) renderStageSelect();
     else if (validRoute === ROUTES.stage0) renderStage0();
+    else if (validRoute.startsWith("#/stage/1/")) renderStage1(validRoute);
     else if (validRoute.includes("/npc/")) renderNpcRoute(validRoute);
     else renderCompanyRoute(validRoute);
 
@@ -322,8 +339,9 @@
     const grid = el("div", "stage-grid");
     for (const stage of state.manual.stages) {
       const visited = safeGet(STORAGE_KEYS.visitedStage(stage.id)) === "1";
-      const button = createActionButton("", () => navigate(stage.id === "stage-0" ? ROUTES.stage0 : ROUTES.stages), "stage-card");
-      button.disabled = stage.id !== "stage-0";
+      const targetRoute = getStageDefaultRoute(stage.id);
+      const button = createActionButton("", () => navigate(targetRoute || ROUTES.stages), "stage-card");
+      button.disabled = !targetRoute;
       button.innerHTML = "";
       button.append(
         createKicker(stage.number || stage.id),
@@ -430,6 +448,329 @@
     appViewShell.append(wrapper);
   }
 
+  function renderStage1(route) {
+    const stage = getStage1();
+    const activeTab = getStage1TabFromRoute(route) || "intro";
+    safeSet(STORAGE_KEYS.visitedStage(stage.id), "1");
+
+    const wrapper = createRouteLayout(`${stage.number} ${stage.title}`, ROUTES.stages);
+    wrapper.classList.add("stage1-panel");
+    wrapper.append(createStage1Tabs(stage, activeTab));
+
+    if (activeTab === "intro") renderStage1Intro(stage, wrapper);
+    else if (activeTab === "todo") renderStage1Todo(stage, wrapper);
+    else if (activeTab === "diagram") renderStage1Diagram(stage, wrapper);
+    else renderStage1Faq(stage, wrapper);
+
+    appViewShell.append(wrapper);
+  }
+
+  function createStage1Tabs(stage, activeTab) {
+    const tabs = el("div", "stage-tabs");
+    for (const tab of stage.tabs || []) {
+      const button = createActionButton(tab.label, () => navigate(stage1Route(tab.id)), "stage-tab");
+      button.classList.toggle("is-active", tab.id === activeTab);
+      tabs.append(button);
+    }
+    return tabs;
+  }
+
+  function renderStage1Intro(stage, wrapper) {
+    const pages = stage.intro.pages || [];
+    state.stage1IntroPage = clamp(state.stage1IntroPage, 0, Math.max(0, pages.length - 1));
+    const page = pages[state.stage1IntroPage];
+    const reader = el("section", "reader-card page-reader");
+    reader.append(createKicker(stage.intro.title || "서문"));
+
+    const pageBody = el("div", "reader-body page-flip");
+    for (const block of page.blocks || []) {
+      pageBody.append(renderContentBlock(block));
+    }
+
+    const controls = el("div", "pager-controls");
+    const prev = createActionButton("[◀ 이전]", () => {
+      state.stage1IntroPage = clamp(state.stage1IntroPage - 1, 0, pages.length - 1);
+      renderRoute(state.route);
+    }, "ghost-button");
+    const next = createActionButton("[다음 ▶]", () => {
+      state.stage1IntroPage = clamp(state.stage1IntroPage + 1, 0, pages.length - 1);
+      renderRoute(state.route);
+    }, "ghost-button");
+    prev.disabled = state.stage1IntroPage === 0;
+    next.disabled = state.stage1IntroPage === pages.length - 1;
+    controls.append(prev, createPageDots(pages.length, state.stage1IntroPage), next);
+
+    reader.append(pageBody, controls, createHint("좌우 화살표로 페이지를 넘길 수 있습니다."));
+    wrapper.append(reader);
+  }
+
+  function renderStage1Todo(stage, wrapper) {
+    const panel = el("section", "reader-card todo-panel");
+    panel.append(createKicker("해야 할 일"));
+    const list = el("div", "todo-list");
+    for (const item of stage.todos || []) {
+      const label = el("label", "todo-item");
+      const input = el("input");
+      input.type = "checkbox";
+      input.checked = safeGet(STORAGE_KEYS.checklist(stage.id, item.id)) === "1";
+      input.addEventListener("change", () => {
+        safeSet(STORAGE_KEYS.checklist(stage.id, item.id), input.checked ? "1" : "0");
+      });
+      label.append(input, el("span", "dot-checkbox"), createReadableSpan(item.text));
+      list.append(label);
+    }
+    panel.append(list, createHint("체크 상태만 저장됩니다. 점수나 CLEAR 판정은 없습니다."));
+    wrapper.append(panel);
+  }
+
+  function renderStage1Faq(stage, wrapper) {
+    const panel = el("section", "reader-card faq-panel");
+    panel.append(createKicker("자주 하는 질문"));
+    for (const item of stage.faq || []) {
+      const entry = el("article", "faq-entry");
+      const button = createActionButton(item.question, () => {
+        state.openFaqId = state.openFaqId === item.id ? "" : item.id;
+        renderRoute(state.route);
+      }, "faq-question");
+      const answer = el("div", "faq-answer");
+      answer.hidden = state.openFaqId !== item.id;
+      answer.append(createReadableParagraph(item.answer));
+      entry.append(button, answer);
+      panel.append(entry);
+    }
+    wrapper.append(panel);
+  }
+
+  function renderStage1Diagram(stage, wrapper) {
+    const diagram = stage.diagram;
+    const section = el("section", "diagram-section");
+    section.append(createKicker(diagram.title));
+    section.append(createReadableParagraph(diagram.intro));
+
+    const modeTabs = el("div", "diagram-mode-tabs");
+    modeTabs.append(createDiagramModeButton("tour", "단계 투어"));
+    for (const period of diagram.periods || []) {
+      modeTabs.append(createDiagramModeButton(period.id, period.label));
+    }
+
+    const optionLabel = el("label", "bond-toggle");
+    const optionInput = el("input");
+    optionInput.type = "checkbox";
+    optionInput.checked = state.showBondOption;
+    optionInput.addEventListener("change", () => {
+      state.showBondOption = optionInput.checked;
+      renderRoute(state.route);
+    });
+    optionLabel.append(optionInput, el("span", "", "사채인수 방식 보기(미채택)"));
+    section.append(modeTabs, optionLabel);
+
+    const activeInfo = getActiveDiagramInfo(diagram);
+    if (state.diagramMode === "tour") {
+      section.append(createDiagramStepControls(diagram));
+    }
+
+    const layout = el("div", "diagram-layout");
+    const svgWrap = el("div", "structure-svg-wrap");
+    svgWrap.innerHTML = createStructureSvg(diagram, activeInfo.edgeIds);
+    attachDiagramNodeHandlers(svgWrap, diagram);
+
+    const info = el("aside", "diagram-info reader-card");
+    info.append(createKicker(activeInfo.marker || activeInfo.label || "FLOW"), el("h3", "section-title", activeInfo.title || activeInfo.label));
+    for (const paragraph of String(activeInfo.description || "").split("\n\n")) {
+      if (paragraph.trim()) info.append(createReadableParagraph(paragraph.trim()));
+    }
+
+    layout.append(svgWrap, info);
+    section.append(layout);
+
+    const activeNode = diagram.nodes.find((node) => node.id === state.activeNodeId);
+    if (activeNode) {
+      section.append(createNodeRoleCard(activeNode));
+    }
+
+    section.addEventListener("click", (event) => {
+      if (!state.activeNodeId) return;
+      if (event.target.closest(".node-role-card") || event.target.closest(".diagram-node")) return;
+      state.activeNodeId = "";
+      renderRoute(state.route);
+    });
+
+    wrapper.append(section);
+  }
+
+  function createDiagramModeButton(mode, label) {
+    const button = createActionButton(label, () => {
+      state.diagramMode = mode;
+      state.activeNodeId = "";
+      renderRoute(state.route);
+    }, "stage-tab");
+    button.classList.toggle("is-active", state.diagramMode === mode);
+    return button;
+  }
+
+  function createDiagramStepControls(diagram) {
+    const steps = diagram.tourSteps || [];
+    state.diagramStep = clamp(state.diagramStep, 0, Math.max(0, steps.length - 1));
+    const controls = el("div", "diagram-step-controls");
+    const prev = createActionButton("[◀ 이전]", () => {
+      state.diagramStep = clamp(state.diagramStep - 1, 0, steps.length - 1);
+      renderRoute(state.route);
+    }, "ghost-button");
+    const next = createActionButton("[다음 ▶]", () => {
+      state.diagramStep = clamp(state.diagramStep + 1, 0, steps.length - 1);
+      renderRoute(state.route);
+    }, "ghost-button");
+    prev.disabled = state.diagramStep === 0;
+    next.disabled = state.diagramStep === steps.length - 1;
+    controls.append(prev);
+    for (let index = 0; index < steps.length; index += 1) {
+      const step = steps[index];
+      const button = createActionButton(step.marker, () => {
+        state.diagramStep = index;
+        renderRoute(state.route);
+      }, "step-dot");
+      button.classList.toggle("is-active", index === state.diagramStep);
+      controls.append(button);
+    }
+    controls.append(next);
+    return controls;
+  }
+
+  function getActiveDiagramInfo(diagram) {
+    if (state.diagramMode !== "tour") {
+      return diagram.periods.find((period) => period.id === state.diagramMode) || diagram.periods[0];
+    }
+    const steps = diagram.tourSteps || [];
+    state.diagramStep = clamp(state.diagramStep, 0, Math.max(0, steps.length - 1));
+    return steps[state.diagramStep];
+  }
+
+  function createStructureSvg(diagram, activeEdgeIds) {
+    const activeSet = new Set(activeEdgeIds || []);
+    const nodeMap = new Map(diagram.nodes.map((node) => [node.id, node]));
+    const visibleEdges = diagram.edges.filter((edge) => {
+      if (edge.optional && !state.showBondOption) return false;
+      if (edge.virtual && !activeSet.has(edge.id)) return false;
+      return true;
+    });
+    const activeNodeIds = new Set();
+    for (const edge of visibleEdges) {
+      if (activeSet.has(edge.id)) {
+        activeNodeIds.add(edge.from);
+        activeNodeIds.add(edge.to);
+      }
+    }
+    const allOn = activeEdgeIds && activeEdgeIds.length > 4;
+    const edgeMarkup = visibleEdges.map((edge) => {
+      const from = nodeMap.get(edge.from);
+      const to = nodeMap.get(edge.to);
+      const path = `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
+      const active = activeSet.has(edge.id);
+      const classes = ["structure-edge", active ? "is-active" : "is-dim", edge.dashed || edge.optional ? "is-dashed" : "", edge.virtual ? "is-virtual" : ""].join(" ");
+      const coin = active && !reducedMotion ? `<circle r="7" class="flow-coin"><animateMotion dur="1.6s" repeatCount="indefinite" path="${path}" /></circle>` : "";
+      return `<path id="${edge.id}" class="${classes}" d="${path}" marker-end="url(#arrow)" />${coin}`;
+    }).join("");
+    const nodeMarkup = diagram.nodes.filter((node) => !node.optional || state.showBondOption).map((node) => {
+      const active = allOn || activeNodeIds.has(node.id) || activeSet.size === 0;
+      const classes = ["diagram-node", `theme-${node.theme || "default"}`, active ? "is-active" : "is-dim", node.optional ? "is-optional" : ""].join(" ");
+      const stack = node.stacked ? '<rect class="node-stack stack-a" x="-58" y="-34" width="116" height="68" /><rect class="node-stack stack-b" x="-52" y="-40" width="116" height="68" />' : "";
+      const badge = node.badge ? `<text class="node-badge" x="45" y="-32">${escapeHtml(node.badge)}</text>` : "";
+      const sub = node.subLabel ? `<text class="node-sub" y="15">${escapeHtml(node.subLabel)}</text>` : "";
+      return `<g class="${classes}" data-node-id="${node.id}" tabindex="0" role="button" transform="translate(${node.x} ${node.y})">${stack}<rect class="node-box" x="-70" y="-30" width="140" height="60" />${badge}<text class="node-title" y="-4">${escapeHtml(node.name)}</text>${sub}<text class="node-role" y="22">${escapeHtml(node.role)}</text></g>`;
+    }).join("");
+    const maturityBubble = state.diagramMode === "maturity" ? '<g class="ownership-bubble" transform="translate(462 420)"><text>소유권 이전!</text><text y="28">⛴</text></g>' : "";
+    return `<svg class="structure-svg" viewBox="0 0 720 560" role="img" aria-label="${escapeHtml(diagram.title)}"><defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" /></marker></defs><g class="edge-layer">${edgeMarkup}</g><g class="node-layer">${nodeMarkup}</g>${maturityBubble}</svg>`;
+  }
+
+  function attachDiagramNodeHandlers(svgWrap, diagram) {
+    svgWrap.querySelectorAll(".diagram-node").forEach((node) => {
+      const open = () => {
+        state.activeNodeId = node.dataset.nodeId;
+        renderRoute(state.route);
+      };
+      node.addEventListener("click", open);
+      node.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          open();
+        }
+      });
+    });
+    svgWrap.addEventListener("click", (event) => {
+      if (event.target.closest(".diagram-node")) return;
+      if (state.activeNodeId) {
+        state.activeNodeId = "";
+        renderRoute(state.route);
+      }
+    });
+  }
+
+  function createNodeRoleCard(node) {
+    const card = el("aside", "node-role-card reader-card");
+    const close = createActionButton("닫기", () => {
+      state.activeNodeId = "";
+      renderRoute(state.route);
+    }, "ghost-button");
+    card.append(createKicker(node.role), el("h3", "section-title", node.name), createReadableParagraph(node.excerpt), close);
+    return card;
+  }
+
+  function renderContentBlock(block) {
+    if (block.type === "prompt") {
+      const box = el("div", "prompt-box");
+      const header = el("div", "prompt-header");
+      header.append(el("strong", "", block.label || "프롬프트 예시"), createActionButton("[복사]", () => copyText(block.text), "copy-button"));
+      const code = el("pre", "prompt-code");
+      code.textContent = block.text;
+      box.append(header, code);
+      return box;
+    }
+    return createReadableParagraph(block.text || "");
+  }
+
+  function createReadableParagraph(text) {
+    const paragraph = el("p", "manual-copy readable-copy");
+    appendRichText(paragraph, text);
+    return paragraph;
+  }
+
+  function createReadableSpan(text) {
+    const span = el("span", "readable-copy");
+    appendRichText(span, text);
+    return span;
+  }
+
+  function appendRichText(parent, text) {
+    const parts = String(text || "").split("**");
+    parts.forEach((part, index) => {
+      if (!part) return;
+      const node = index % 2 === 1 ? document.createElement("strong") : document.createTextNode(part);
+      if (node.nodeType === Node.ELEMENT_NODE) node.textContent = part;
+      parent.append(node);
+    });
+  }
+
+  function createPageDots(total, activeIndex) {
+    const dots = el("div", "page-dots");
+    for (let index = 0; index < total; index += 1) {
+      dots.append(el("span", index === activeIndex ? "is-active" : "", index === activeIndex ? "●" : "○"));
+    }
+    return dots;
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = text;
+      document.body.append(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+    }
+  }
+
   function createRouteLayout(title, backRoute) {
     const wrapper = createPanel("route-panel");
     const nav = el("div", "route-nav");
@@ -453,13 +794,33 @@
     if (!route || route === ROUTES.menu) return ROUTES.menu;
     if (route === ROUTES.stages) return ROUTES.menu;
     if (route === ROUTES.stage0) return ROUTES.stages;
+    if (route.startsWith("#/stage/1/")) return ROUTES.stages;
     if (route.includes("/npc/")) return route.replace(/\/npc\/[^/]+$/, "");
     if (route.includes("/company/")) return ROUTES.stage0;
     return ROUTES.menu;
   }
 
+  function getStage(stageId) {
+    return state.manual.stages.find((stage) => stage.id === stageId);
+  }
+
   function getStage0() {
-    return state.manual.stages.find((stage) => stage.id === "stage-0");
+    return getStage("stage-0");
+  }
+
+  function getStage1() {
+    return getStage("stage-1");
+  }
+
+  function getStageDefaultRoute(stageId) {
+    if (stageId === "stage-0") return ROUTES.stage0;
+    if (stageId === "stage-1") return ROUTES.stage1Intro;
+    return null;
+  }
+
+  function getStage1TabFromRoute(route) {
+    const match = route.match(/^#\/stage\/1\/(intro|todo|diagram|faq)$/);
+    return match ? match[1] : "";
   }
 
   function getCompany(companyId) {
@@ -477,6 +838,22 @@
 
   function npcRoute(companyId, npcId) {
     return `${companyRoute(companyId)}/npc/${npcId}`;
+  }
+
+  function stage1Route(tabId) {
+    return `#/stage/1/${tabId}`;
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 
   function createPanel(extraClass) {
@@ -697,7 +1074,28 @@
 
     if (event.key === "Escape") {
       event.preventDefault();
+      if (state.activeNodeId) {
+        state.activeNodeId = "";
+        renderRoute(state.route);
+        return;
+      }
       if (state.route !== ROUTES.menu) goBack(getParentRoute(state.route));
+      return;
+    }
+
+    if (state.route === ROUTES.stage1Intro && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+      const pageCount = getStage1().intro.pages.length;
+      state.stage1IntroPage = clamp(state.stage1IntroPage + (event.key === "ArrowRight" ? 1 : -1), 0, pageCount - 1);
+      event.preventDefault();
+      renderRoute(state.route);
+      return;
+    }
+
+    if (state.route === ROUTES.stage1Diagram && state.diagramMode === "tour" && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+      const stepCount = getStage1().diagram.tourSteps.length;
+      state.diagramStep = clamp(state.diagramStep + (event.key === "ArrowRight" ? 1 : -1), 0, stepCount - 1);
+      event.preventDefault();
+      renderRoute(state.route);
       return;
     }
 
