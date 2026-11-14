@@ -397,6 +397,249 @@ button {
   content: "MANUAL UNLOCKED";
 }
 
+.app-view {
+  align-items: start;
+  overflow-y: auto;
+  padding: clamp(18px, 4vw, 42px);
+}
+
+.app-shell {
+  position: relative;
+  z-index: 22;
+  width: min(1120px, 100%);
+  padding: 18px 0 96px;
+}
+
+.app-card {
+  width: 100%;
+  min-height: min(720px, calc(100vh - 132px));
+}
+
+.app-card::before {
+  content: "SHIP QUEST";
+}
+
+.main-menu-card {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 18px;
+  text-align: center;
+}
+
+.menu-actions,
+.route-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+}
+
+.menu-actions {
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.route-nav {
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.ghost-button,
+.back-button,
+.stage-card,
+.company-tile,
+.npc-card {
+  color: var(--white);
+  background: rgba(2, 4, 10, 0.48);
+  border: 3px solid var(--panel-light);
+  box-shadow:
+    0 0 0 3px var(--shadow),
+    inset 0 0 0 3px rgba(79, 231, 255, 0.08);
+}
+
+.menu-actions .pixel-button,
+.ghost-button,
+.back-button {
+  min-height: 48px;
+  padding: 12px 18px;
+}
+
+.ghost-button,
+.back-button {
+  color: var(--neon);
+}
+
+button:focus-visible,
+.stage-card:focus-visible,
+.company-tile:focus-visible,
+.npc-card:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 6px;
+}
+
+.route-panel {
+  display: grid;
+  gap: 22px;
+}
+
+.stage-grid,
+.company-grid,
+.npc-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.stage-card,
+.company-tile,
+.npc-card {
+  display: grid;
+  gap: 10px;
+  min-height: 170px;
+  padding: 18px;
+  text-align: left;
+}
+
+.stage-card:not(:disabled):hover,
+.company-tile:hover,
+.npc-card:hover,
+.ghost-button:hover,
+.back-button:hover {
+  border-color: var(--neon);
+  transform: translateY(-2px);
+}
+
+.stage-card:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.7);
+  opacity: 0.46;
+}
+
+.stage-card-title,
+.company-name,
+.npc-name {
+  color: var(--gold);
+  font-size: clamp(1.1rem, 3vw, 1.45rem);
+  line-height: 1.25;
+}
+
+.visit-badge {
+  justify-self: start;
+  margin-top: auto;
+  padding: 4px 8px;
+  color: var(--ink);
+  background: var(--gold);
+  box-shadow: 3px 3px 0 var(--orange);
+  font-size: 0.78rem;
+}
+
+.visit-badge.visited {
+  background: var(--neon);
+  box-shadow: 3px 3px 0 var(--neon-soft);
+}
+
+.village-intro,
+.notice-board,
+.npc-board,
+.npc-dex {
+  padding: clamp(16px, 3vw, 24px);
+  background: rgba(2, 4, 10, 0.36);
+  border: 3px solid rgba(255, 248, 215, 0.38);
+}
+
+.section-title {
+  margin: 0 0 12px;
+  color: #4fe7ff;
+  font-size: clamp(1.05rem, 3vw, 1.45rem);
+}
+
+.manual-copy {
+  margin: 0;
+  color: var(--white);
+  line-height: 1.72;
+  white-space: pre-line;
+}
+
+.manual-copy + .manual-copy {
+  margin-top: 12px;
+}
+
+.route-hint {
+  margin: 0;
+  color: rgba(255, 248, 215, 0.72);
+  line-height: 1.6;
+}
+
+.company-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  color: var(--ink);
+  background: var(--gold);
+  box-shadow: 5px 5px 0 var(--orange);
+  font-size: 1.4rem;
+}
+
+.company-role,
+.npc-meta {
+  color: var(--neon);
+  line-height: 1.45;
+}
+
+.village-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(260px, 0.95fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.npc-card {
+  grid-template-columns: 76px minmax(0, 1fr);
+  min-height: 136px;
+  align-items: center;
+}
+
+.npc-card .visit-badge {
+  grid-column: 2;
+}
+
+.npc-avatar {
+  width: 70px;
+  height: 70px;
+  padding: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 230, 109, 0.22), transparent),
+    var(--ink);
+  border: 3px solid var(--gold);
+  box-shadow: 5px 5px 0 var(--shadow);
+}
+
+.npc-avatar svg {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.npc-dex {
+  display: grid;
+  grid-template-columns: minmax(120px, 220px) minmax(0, 1fr);
+  gap: clamp(18px, 4vw, 32px);
+  align-items: start;
+}
+
+.large-avatar {
+  width: min(220px, 52vw);
+  height: min(220px, 52vw);
+  padding: 18px;
+}
+
+.npc-dex-copy {
+  display: grid;
+  gap: 12px;
+}
+
 .manual-kicker {
   margin: 0 0 8px;
   color: var(--neon);
@@ -657,6 +900,32 @@ button {
 @media (max-width: 620px) {
   .identity-form {
     grid-template-columns: 1fr;
+  }
+
+  .app-view {
+    padding: 14px;
+  }
+
+  .app-card {
+    min-height: calc(100vh - 120px);
+  }
+
+  .route-nav {
+    justify-content: flex-start;
+  }
+
+  .village-split,
+  .npc-dex {
+    grid-template-columns: 1fr;
+  }
+
+  .npc-card {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .npc-avatar {
+    width: 58px;
+    height: 58px;
   }
 
   .pixel-button {
